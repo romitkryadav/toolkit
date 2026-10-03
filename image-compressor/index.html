@@ -41,13 +41,39 @@ header{height:68px;border-bottom:1px solid var(--line);background:rgba(9,9,9,.94
 <section class="content"><div class="container"><h2>What does this image compressor do?</h2><p>This tool re-encodes an image in your browser to create a smaller file. It is useful when an image is too large for a website, upload form, email or messaging service.</p><h2>Supported formats</h2><ul><li>JPG / JPEG for photographs and general-purpose images.</li><li>WebP for modern websites and smaller web assets.</li><li>PNG when you need lossless output or transparency.</li></ul><h2>Is my image uploaded?</h2><p>No. The compression process runs locally in your browser using the Canvas API. The selected image is not sent to a Toolkit server by this page.</p><p class="note">Compression results vary by image dimensions, format and quality setting. Converting a PNG to JPG or WebP can change transparency and image characteristics.</p></div></section>
 </main>
 <script>
+(function(){
 const file=document.getElementById("file"),drop=document.getElementById("drop"),controls=document.getElementById("controls"),quality=document.getElementById("quality"),qualityValue=document.getElementById("qualityValue"),format=document.getElementById("format"),compress=document.getElementById("compress"),status=document.getElementById("status"),result=document.getElementById("result"),preview=document.getElementById("preview"),download=document.getElementById("download"),processing=document.getElementById("processing");
 let selected=null,outputUrl=null;
-function formatBytes(n){if(n<1024)return n+" B";if(n<1048576)return (n/1024).toFixed(1)+" KB";return (n/1048576).toFixed(2)+" MB"}
-function showProcessing(on){processing.classList.toggle("active",on);compress.disabled=on}
-function choose(f){if(!f.type.startsWith("image/")){status.textContent="Please choose a valid JPG, PNG or WebP image.";return}selected=f;drop.classList.add("is-hidden");controls.style.display="flex";result.style.display="none";status.style.display="block";status.textContent=f.name+" selected. Choose settings and compress.";format.value=f.type==="image/png"?"image/png":f.type==="image/webp"?"image/webp":"image/jpeg"}
-drop.addEventListener("click",()=>file.click());file.addEventListener("change",()=>{const f=file.files?.[0];if(f)choose(f)});drop.addEventListener("dragover",e=>{e.preventDefault();drop.classList.add("drag")});drop.addEventListener("dragleave",()=>drop.classList.remove("drag"));drop.addEventListener("drop",e=>{e.preventDefault();drop.classList.remove("drag");const f=e.dataTransfer.files?.[0];if(f)choose(f)});quality.addEventListener("input",()=>qualityValue.textContent=quality.value);
-compress.addEventListener("click",()=>{if(!selected)return;showProcessing(true);status.textContent="Compressing…";const url=URL.createObjectURL(selected),img=new Image();img.onload=()=>{URL.revokeObjectURL(url);const canvas=document.createElement("canvas");canvas.width=img.naturalWidth;canvas.height=img.naturalHeight;const ctx=canvas.getContext("2d");if(format.value==="image/jpeg"){ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height)}ctx.drawImage(img,0,0);canvas.toBlob(blob=>{if(!blob){status.textContent="This browser could not create that output format.";showProcessing(false);return}if(outputUrl)URL.revokeObjectURL(outputUrl);outputUrl=URL.createObjectURL(blob);preview.src=outputUrl;preview.alt="Compressed "+selected.name;download.href=outputUrl;download.download=selected.name.replace(/\.[^.]+$/,"")+"-compressed."+({ "image/jpeg":"jpg","image/png":"png","image/webp":"webp"}[format.value]);document.getElementById("originalSize").textContent=formatBytes(selected.size);document.getElementById("compressedSize").textContent=formatBytes(blob.size);document.getElementById("reduction").textContent=Math.max(0,100-blob.size/selected.size*100).toFixed(1)+"%";result.style.display="block";status.textContent="Compression complete.";showProcessing(false)},""+format.value,Number(quality.value)/100)},img.onerror=()=>{URL.revokeObjectURL(url);status.textContent="Could not read this image.";showProcessing(false)};img.src=url});
+function bytes(n){return n<1024?n+" B":n<1048576?(n/1024).toFixed(1)+" KB":(n/1048576).toFixed(2)+" MB"}
+function busy(v){processing.classList.toggle("active",v);compress.disabled=v}
+function selectFile(f){if(!f||!/^image\/(jpeg|png|webp)$/.test(f.type)){status.style.display="block";status.textContent="Please select a JPG, PNG or WebP image.";return}selected=f;drop.classList.add("is-hidden");controls.style.display="flex";result.style.display="none";status.style.display="block";status.textContent=f.name+" selected."}
+drop.addEventListener("click",function(){file.click()});
+file.addEventListener("change",function(){selectFile(file.files[0])});
+drop.addEventListener("dragover",function(e){e.preventDefault();drop.classList.add("drag")});
+drop.addEventListener("dragleave",function(){drop.classList.remove("drag")});
+drop.addEventListener("drop",function(e){e.preventDefault();drop.classList.remove("drag");selectFile(e.dataTransfer.files[0])});
+quality.addEventListener("input",function(){qualityValue.textContent=quality.value});
+compress.addEventListener("click",function(){
+if(!selected)return;busy(true);status.textContent="Compressing…";
+const reader=new FileReader();
+reader.onerror=function(){busy(false);status.textContent="Could not read the image."};
+reader.onload=function(){
+const img=new Image();
+img.onload=function(){
+const canvas=document.createElement("canvas");canvas.width=img.naturalWidth;canvas.height=img.naturalHeight;
+const ctx=canvas.getContext("2d");
+if(format.value==="image/jpeg"){ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height)}
+ctx.drawImage(img,0,0);
+canvas.toBlob(function(blob){
+if(!blob){busy(false);status.textContent="Your browser could not create this format.";return}
+if(outputUrl)URL.revokeObjectURL(outputUrl);outputUrl=URL.createObjectURL(blob);
+preview.src=outputUrl;download.href=outputUrl;download.download=selected.name.replace(/\.[^.]+$/,"")+"-compressed."+({ "image/jpeg":"jpg","image/png":"png","image/webp":"webp"})[format.value];
+document.getElementById("originalSize").textContent=bytes(selected.size);document.getElementById("compressedSize").textContent=bytes(blob.size);document.getElementById("reduction").textContent=Math.max(0,100-(blob.size/selected.size*100)).toFixed(1)+"%";result.style.display="block";status.textContent="Compression complete.";busy(false);
+},format.value,Number(quality.value)/100);
+};img.onerror=function(){busy(false);status.textContent="Could not decode this image."};img.src=reader.result;
+};reader.readAsDataURL(selected);
+});
+})();
 </script>
 </body>
 </html>
