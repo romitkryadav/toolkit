@@ -27,7 +27,7 @@ h1{font-size:clamp(46px,7vw,76px);line-height:.98;letter-spacing:-.065em;margin:
 .hero p{max-width:650px;margin:0 auto;color:#999;font-size:17px}
 .hero-search{width:min(680px,100%);margin:31px auto 0;position:relative}
 .hero-search input{width:100%;height:56px;border:1px solid var(--line2);background:#111;border-radius:10px;color:#fff;padding:0 17px 0 45px;outline:0}
-.hero-search input:focus{border-color:#555}
+.hero-search input:focus{border-color:#555}.search-suggestions{position:absolute;left:0;right:0;top:62px;background:#111;border:1px solid #303030;border-radius:12px;overflow:hidden;text-align:left;box-shadow:0 18px 45px rgba(0,0,0,.45);z-index:30}.suggestion{display:flex;align-items:center;gap:12px;padding:13px 15px;border-bottom:1px solid #202020;cursor:pointer}.suggestion:last-child{border-bottom:0}.suggestion:hover,.suggestion.active{background:#181818}.suggestion-icon{width:30px;height:30px;display:grid;place-items:center;border:1px solid #2d2d2d;border-radius:8px;background:#0d0d0d;color:#aaa}.suggestion-icon svg{width:15px;height:15px}.suggestion-text strong{display:block;font-size:13px;color:#eee}.suggestion-text span{display:block;font-size:11px;color:#666;margin-top:2px}
 .search-icon{position:absolute;left:17px;top:17px;color:#666;width:18px;height:18px}.search-icon svg{width:18px;height:18px;display:block}
 main{padding-bottom:70px}
 .section{padding:62px 0}
@@ -98,7 +98,8 @@ footer{border-top:1px solid var(--line);padding:30px 0;color:#666;font-size:12px
 <p>Useful web tools for images, video and social media. Open a tool, do the job, and move on — without unnecessary software or complicated interfaces.</p>
 <div class="hero-search">
 <span class="search-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg></span>
-<input id="search" type="search" placeholder="Search for a tool, format or task" aria-label="Search Toolkit">
+<input id="search" type="search" placeholder="Search tools..." aria-label="Search Toolkit" autocomplete="off" aria-controls="searchSuggestions" aria-expanded="false">
+<div class="search-suggestions" id="searchSuggestions" role="listbox" hidden></div>
 </div>
 </div>
 </section>
@@ -196,8 +197,10 @@ footer{border-top:1px solid var(--line);padding:30px 0;color:#666;font-size:12px
 
 <script>
 const search=document.getElementById("search");
+const suggestions=document.getElementById("searchSuggestions");
 const cards=[...document.querySelectorAll("[data-search]")];
 const count=document.getElementById("resultCount");
+const tools=[...new Map(cards.map(card=>[card.href,card])).values()];
 function filter(value){
  const q=value.toLowerCase().trim();
  let visible=0;
@@ -208,9 +211,18 @@ function filter(value){
  });
  count.textContent=visible+" tool"+(visible===1?"":"s");
 }
-search.addEventListener("input",()=>filter(search.value));
+function showSuggestions(){
+ const q=search.value.toLowerCase().trim();
+ if(!q){suggestions.hidden=true;search.setAttribute("aria-expanded","false");return}
+ const matches=tools.filter(card=>card.dataset.search.includes(q)||card.querySelector("h3")?.textContent.toLowerCase().includes(q)).slice(0,5);
+ suggestions.innerHTML=matches.length?matches.map(card=>`<a class="suggestion" href="${card.href}" role="option"><span class="suggestion-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg></span><span class="suggestion-text"><strong>${card.querySelector("h3")?.textContent||"Tool"}</strong><span>${card.querySelector(".tool-cat")?.textContent||"Tool"}</span></span></a>`).join(""):`<div class="suggestion"><span class="suggestion-text"><strong>No matching tools</strong><span>Try another search</span></span></div>`;
+ suggestions.hidden=false;search.setAttribute("aria-expanded","true");
+}
+search.addEventListener("input",()=>{filter(search.value);showSuggestions()});
+search.addEventListener("focus",showSuggestions);
+document.addEventListener("click",e=>{if(!e.target.closest(".hero-search")){suggestions.hidden=true;search.setAttribute("aria-expanded","false")}});
 const params=new URLSearchParams(location.search);
-if(params.get("q")){search.value=params.get("q");filter(search.value)}
+if(params.get("q")){search.value=params.get("q");filter(search.value);showSuggestions()}
 </script>
 </body>
 </html>
